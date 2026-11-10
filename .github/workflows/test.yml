@@ -1,0 +1,18 @@
+name: test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      # tests import only the pure modules; the Dynatrace SDK is not needed
+      - run: pip install pytest pyyaml
+      - run: python -m pytest -q tests
+      - name: manifests parse
+        run: |
+          python -c "import json,yaml; [json.load(open(f)) for f in ['extension/activationSchema.json','extension/openpipeline/metrics.pipeline.json','extension/openpipeline/metrics.source.json']]; yaml.safe_load(open('extension/extension.yaml'))"

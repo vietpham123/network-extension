@@ -1,0 +1,66 @@
+{
+  "types": {
+    "pythonRemote": {
+      "type": "object",
+      "displayName": "NetBox network",
+      "properties": {
+        "netboxUrl": {
+          "displayName": "NetBox URL",
+          "description": "Base URL of your NetBox instance, e.g. https://netbox.example.com",
+          "type": "text",
+          "nullable": false,
+          "maxLength": 500,
+          "default": ""
+        },
+        "netboxToken": {
+          "displayName": "NetBox API token",
+          "description": "Read access to dcim devices, interfaces and cables.",
+          "type": "secret",
+          "nullable": false,
+          "maxLength": 500,
+          "default": ""
+        },
+        "chassisMacField": {
+          "displayName": "Chassis MAC custom field",
+          "description": "Name of the NetBox device custom field holding the chassis MAC. This is how a NetBox device is matched to the network device Dynatrace already discovered over SNMP. Devices without it fall back to their management interface MAC; devices with neither are reported but create no Smartscape node.",
+          "type": "text",
+          "nullable": false,
+          "maxLength": 100,
+          "default": "chassis_mac"
+        },
+        "hostRoles": {
+          "displayName": "Roles that are hosts, not network devices",
+          "description": "Comma-separated NetBox role slugs. Devices with these roles are reported in the roster but never become network devices in Smartscape, and cables to them create no edges.",
+          "type": "text",
+          "nullable": false,
+          "maxLength": 500,
+          "default": "server,hypervisor,storage"
+        },
+        "emitNeighbors": {
+          "displayName": "Draw neighbor edges from NetBox cabling",
+          "description": "Turns connected data cables between active network devices into Smartscape neighbor (calls) edges. Where SNMP Autodiscovery already discovers neighbors over LLDP/CDP, edges for the same cable merge rather than duplicate; turn this off if you only want NetBox's device metadata.",
+          "type": "boolean",
+          "nullable": false,
+          "default": true
+        },
+        "intervalSeconds": {
+          "displayName": "Poll interval (seconds)",
+          "description": "NetBox is a CMDB; it changes on human timescales. 300s keeps load on NetBox low.",
+          "type": "integer",
+          "nullable": false,
+          "default": 300,
+          "minimum": 60,
+          "maximum": 3600
+        }
+      }
+    }
+  },
+  "properties": {
+    "pythonRemote": {
+      "displayName": "NetBox network",
+      "type": {
+        "$ref": "#/types/pythonRemote"
+      }
+    }
+  }
+}

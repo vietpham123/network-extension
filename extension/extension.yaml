@@ -1,0 +1,52 @@
+name: custom:netbox.network
+version: 0.1.0
+# 1.330 is the first version that accepts the top-level `openpipeline` block (Dynatrace docs,
+# "Network topology" how-to, 2026-08-17). Without it every tenant would need the Smartscape
+# extraction configured by hand.
+minDynatraceVersion: "1.330.0"
+author:
+  name: Viet Pham
+
+# NetBox -> Dynatrace network model (Semantic Dictionary). Standalone: enriches the
+# EXT_NETWORK_DEVICE nodes Dynatrace's SNMP extensions create and adds NetBox-declared neighbour
+# edges, so any app or query over the network model sees NetBox data. No app dependency.
+python:
+  runtime:
+    module: netbox_network
+    version:
+      min: "3.10"
+  activation:
+    remote:
+      path: activationSchema.json
+
+openpipeline:
+  sources:
+    - displayName: NetBox network
+      sourcePath: openpipeline/metrics.source.json
+      configScope: metrics
+  pipelines:
+    - displayName: NetBox network
+      pipelinePath: openpipeline/metrics.pipeline.json
+      configScope: metrics
+
+metrics:
+  - key: netbox.device
+    metadata:
+      displayName: "NetBox device"
+      description: "One per NetBox device, value always 1. Dimensions carry identity (chassis.mac, identity.source) and CMDB facts (netbox.*). Active network devices with a chassis MAC enrich their EXT_NETWORK_DEVICE node."
+      unit: "State"
+  - key: netbox.neighbor
+    metadata:
+      displayName: "NetBox declared neighbor"
+      description: "One per direction of each connected data cable between two active network devices, value always 1. Becomes a Smartscape calls edge from the device to its neighbor."
+      unit: "State"
+  - key: netbox.cable.skipped
+    metadata:
+      displayName: "NetBox cables not mapped"
+      description: "Cables not turned into neighbor edges this cycle, by reason (power, planned, host end, ...)."
+      unit: "Count"
+  - key: netbox.poll
+    metadata:
+      displayName: "NetBox poll succeeded"
+      description: "1 if the NetBox endpoint was read completely, 0 if not. A 0 means the other netbox.* series are missing for that cycle because they could not be read, not because NetBox is empty."
+      unit: "State"

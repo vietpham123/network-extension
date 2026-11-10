@@ -1,0 +1,111 @@
+{
+  "displayName": "NetBox network",
+  "customId": "extension:custom:netbox.network",
+  "metadataList": [],
+  "processing": {
+    "processors": [
+      {
+        "id": "netbox-device-reshape",
+        "description": "Shape the node-carrying device metric for extraction: ip and mac are array fields in the network model and the extension framework cannot emit arrays. upsert_source names who last wrote the node, since SNMP extensions write the same node.",
+        "enabled": true,
+        "type": "dql",
+        "matcher": "metric.key == \"netbox.device\" and netbox.is_network_device == \"true\" and netbox.status == \"active\" and isNotNull(chassis.mac)",
+        "dql": {
+          "script": "fieldsAdd mac=array(chassis.mac), ip=if(isNotNull(device.address), array(toIp(device.address))), troubleshooting.upsert_source=\"extension:netbox.network|metric:netbox.device\""
+        }
+      }
+    ]
+  },
+  "smartscapeNodeExtraction": {
+    "processors": [
+      {
+        "id": "netbox-device-upsert",
+        "description": "Enrich EXT_NETWORK_DEVICE from active NetBox network devices. Identity is the chassis MAC, the same component the Dynatrace SNMP extensions use, so this enriches their node instead of creating a second one. Writes only fields SNMP leaves empty (serial_number, part_number) plus netbox.* (docs/DECISIONS.md D3).",
+        "matcher": "metric.key == \"netbox.device\" and netbox.is_network_device == \"true\" and netbox.status == \"active\"",
+        "enabled": true,
+        "type": "smartscapeNode",
+        "smartscapeNode": {
+          "nodeType": "EXT_NETWORK_DEVICE",
+          "nodeIdFieldName": "dt.smartscape.ext_network_device",
+          "idComponents": [
+            { "idComponent": "identifier", "referencedFieldName": "chassis.mac" }
+          ],
+          "extractNode": true,
+          "nodeName": { "type": "field", "field": { "sourceFieldName": "sys.name" } },
+          "fieldsToExtract": [
+            { "fieldName": "troubleshooting.upsert_source", "referencedFieldName": "troubleshooting.upsert_source" },
+            { "fieldName": "mac", "referencedFieldName": "mac" },
+            { "fieldName": "ip", "referencedFieldName": "ip" },
+            { "fieldName": "serial_number", "referencedFieldName": "serial_number" },
+            { "fieldName": "part_number", "referencedFieldName": "part_number" },
+            { "fieldName": "netbox.id", "referencedFieldName": "netbox.id" },
+            { "fieldName": "netbox.status", "referencedFieldName": "netbox.status" },
+            { "fieldName": "netbox.role", "referencedFieldName": "netbox.role" },
+            { "fieldName": "netbox.site", "referencedFieldName": "netbox.site" },
+            { "fieldName": "netbox.rack", "referencedFieldName": "netbox.rack" },
+            { "fieldName": "netbox.tenant", "referencedFieldName": "netbox.tenant" },
+            { "fieldName": "netbox.platform", "referencedFieldName": "netbox.platform" },
+            { "fieldName": "netbox.manufacturer", "referencedFieldName": "netbox.manufacturer" },
+            { "fieldName": "netbox.device_type", "referencedFieldName": "netbox.device_type" },
+            { "fieldName": "netbox.asset_tag", "referencedFieldName": "netbox.asset_tag" },
+            { "fieldName": "netbox.identity_source", "referencedFieldName": "identity.source" }
+          ]
+        }
+      },
+      {
+        "id": "netbox-signal-device-id",
+        "description": "Attach the device node id to every NetBox network-device signal (no node event), so netbox.* series can be filtered and charted by dt.smartscape.ext_network_device like any other network metric.",
+        "matcher": "(metric.key == \"netbox.device\" and netbox.is_network_device == \"true\") or metric.key == \"netbox.neighbor\"",
+        "enabled": true,
+        "type": "smartscapeNode",
+        "smartscapeNode": {
+          "nodeType": "EXT_NETWORK_DEVICE",
+          "nodeIdFieldName": "dt.smartscape.ext_network_device",
+          "idComponents": [
+            { "idComponent": "identifier", "referencedFieldName": "chassis.mac" }
+          ],
+          "extractNode": false
+        }
+      },
+      {
+        "id": "netbox-neighbor-id",
+        "description": "Compute the neighbor device's node id into its own field so the next processor can target it with a static edge. Must run before netbox-neighbor-calls-edge.",
+        "matcher": "metric.key == \"netbox.neighbor\"",
+        "enabled": true,
+        "type": "smartscapeNode",
+        "smartscapeNode": {
+          "nodeType": "EXT_NETWORK_DEVICE",
+          "nodeIdFieldName": "neighbor.smartscape_id",
+          "idComponents": [
+            { "idComponent": "identifier", "referencedFieldName": "neighbor.chassis.mac" }
+          ],
+          "extractNode": false
+        }
+      },
+      {
+        "id": "netbox-neighbor-calls-edge",
+        "description": "Declared cable -> static calls edge from the device to its neighbor. Each cable arrives once per direction, so both edges exist, matching how Dynatrace's own LLDP/CDP neighbor discovery draws them (docs/DECISIONS.md D5).",
+        "matcher": "metric.key == \"netbox.neighbor\" and isNotNull(neighbor.smartscape_id)",
+        "enabled": true,
+        "type": "smartscapeNode",
+        "smartscapeNode": {
+          "nodeType": "EXT_NETWORK_DEVICE",
+          "nodeIdFieldName": "dt.smartscape.ext_network_device",
+          "idComponents": [
+            { "idComponent": "identifier", "referencedFieldName": "chassis.mac" }
+          ],
+          "extractNode": true,
+          "nodeName": { "type": "field", "field": { "sourceFieldName": "sys.name" } },
+          "fieldsToExtract": [],
+          "staticEdgesToExtract": [
+            {
+              "edgeType": "calls",
+              "targetType": "EXT_NETWORK_DEVICE",
+              "targetIdFieldName": "neighbor.smartscape_id"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

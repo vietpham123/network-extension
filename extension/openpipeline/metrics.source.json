@@ -1,0 +1,11 @@
+{
+  "displayName": "NetBox network",
+  "metadataList": [],
+  "enabled": true,
+  "sourceType": "extension",
+  "source": "custom:netbox.network",
+  "staticRouting": {
+    "pipelineType": "custom",
+    "pipelineId": "extension:custom:netbox.network"
+  }
+}
